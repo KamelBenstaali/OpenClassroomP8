@@ -1,0 +1,69 @@
+Cette mission suit un scénario de projet professionnel.
+
+# Prêt à mener la mission ? 
+
+Future Vision Transport est une entreprise qui conçoit des systèmes embarqués de vision par ordinateur pour les véhicules autonomes. 
+
+Vous êtes l’un des ingénieurs IA au sein de l’équipe R&D de cette entreprise. Votre équipe est composée d’ingénieurs aux profils variés. Chacun des membres de l’équipe est spécialisé sur une des parties du système embarqué de vision par ordinateur. 
+
+Voici les différentes parties du système :
+
+1. acquisition des images en temps réel
+2. traitement des images
+3. segmentation des images (c’est vous !)
+4. système de décision
+
+Vous travaillez sur la partie de segmentation des images (3) qui est alimentée par le bloc de traitement des images (2) et qui alimente le système de décision (4).
+
+Votre rôle est de concevoir un premier modèle de segmentation d’images qui devra s’intégrer facilement dans la chaîne complète du système embarqué.
+
+Lors d’une première phase de cadrage, vous avez récolté les avis de Franck et Laura, qui travaillent sur les parties avant et après votre intervention :
+
+Franck, en charge du traitement des images (2) :
+
+Le jeu de données que Franck utilise est disponible à ce lien, ou en téléchargement direct à ces liens : 1 ou 2, (images segmentées et annotées de caméras embarquées). On a uniquement besoin des 8 catégories principales (et non pas des 32 sous-catégories)
+
+Laura, en charge du système de décision (4)
+
+--
+
+Souhaite une API simple à utiliser.
+L’API prend en entrée une image et renvoie la segmentation de l’image de l’algo.
+
+Pour récapituler, vous avez dressé un plan d’action, avec les points suivants :
+
+1. entraîner un modèle de segmentation des images sur les 8 catégories principales. Keras est le framework de travail commun à toute l’équipe. Attention aux contraintes de Franck !
+2. concevoir une API de prédiction (Flask ou FastAPI) qui sera utilisée par Laura et la déployer sur le Cloud (Azure, Heroku, PythonAnywhere ou toute autre solution). Cette API prend en entrée une image et renvoie le mask prédit (segments prédits de l’image).
+3. concevoir une application web (Flask, Streamlit) de présentation des résultats et la déployer sur le Cloud (Azure, Heroku, PythonAnywhere ou toute autre solution). Cette application sera l’interface pour tester l’API et afficher les images et masks.
+
+
+Livrables:
+
+1. Les scripts développés sur un notebook permettant l’exécution du pipeline complet :
+Ce livrable vous servira à présenter le caractère “industrialisable” de votre travail en particulier le générateur de données.
+2. Une API (Flask ou FastAPI) déployée sur le Cloud (Azure, Heroku, PythonAnywhere ou toute autre solution), pour exposer votre modèle entraîné et qui recevra en entrée une image et retournera le mask prédit (les segments identifiés par votre modèle) :
+Ce livrable permettra à Laura d’utiliser facilement votre modèle.
+3. Une application (Flask, Streamlit) de présentation des résultats qui consomme l’API de prédiction, déployée sur le Cloud (Azure, Heroku, PythonAnywhere ou toute autre solution). Cette application sera l’interface pour tester l’API et intégrera les fonctionnalités suivantes :  affichage de la liste des id des images disponibles, lancement de la prédiction du mask pour l’id sélectionné par appel à l’API, et affichage de l’image réelle, du mask réel et du mask prédit :
+Ce livrable permettra d’illustrer votre travail auprès de vos collègues
+4. Une note technique de 10 pages environ contenant une présentation des différentes approches et une synthèse de l’état de l’art, la présentation plus détaillée du modèle et de l’architecture retenue, une synthèse des résultats obtenus (incluant les gains obtenus avec les approches d’augmentation des données) et une conclusion avec des pistes d’amélioration envisageables  :
+Ce livrable vous servira à présenter votre démarche technique à vos collègues.
+5. Un support de présentation (type Power Point) de votre démarche méthodologique (30 slides maximum) :
+Ce livrable vous permettra de présenter vos résultats à Laura.
+
+
+Soutenance:
+
+
+Pendant la soutenance, l’évaluateur ne jouera aucun rôle en particulier. Vous lui présenterez l’ensemble de votre travail. 
+
+Présentation (20 minutes) 
+Présentation du contexte, des objectifs, des principes de segmentation et des mesures de performance qui seront utilisées pour comparer les modèles (5 minutes)
+Présentation des différents modèles, simulations et comparaisons des modèles (10 minutes).
+Mise en production d’un modèle (5 minutes) :
+Architecture API et application Web et démarche de mise en production sur le Cloud choisi par l’étudiant
+démonstration de fonctionnement de l’application et de la prédiction de segmentation d’une image (mask).
+Discussion (5 minutes)
+L’évaluateur vous challengera sur vos choix. 
+Débriefing (5 minutes)
+À la fin de la soutenance, vous pourrez débriefer ensemble. 
+

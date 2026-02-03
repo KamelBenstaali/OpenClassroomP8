@@ -1,0 +1,26 @@
+# System files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Project specific
+mlflow.db
+mlruns/
+# Data folder (often too large for git, uncomment if you want to exclude it)
+Data/
+
+# Models
+*.keras
+*.h5
+*.pth
+*.pt
+

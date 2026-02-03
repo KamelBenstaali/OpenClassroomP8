@@ -1,0 +1,14 @@
+artifact_uri: file:///content/drive/MyDrive/P8/Experiences/562585704017216840/de420a43ce3d46718fb822ee520702a3/artifacts
+end_time: 1770065464423
+entry_point_name: ''
+experiment_id: '562585704017216840'
+lifecycle_stage: active
+run_id: de420a43ce3d46718fb822ee520702a3
+run_name: MobileNetV2_UNet_NoAug
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770065310569
+status: 4
+tags: []
+user_id: root
