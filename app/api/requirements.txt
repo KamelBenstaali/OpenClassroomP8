@@ -1,11 +1,6 @@
-
-# --- API Dependencies ---
-# Serveur Web & API
+tensorflow-cpu>=2.15.0
 fastapi>=0.103.1
 uvicorn>=0.23.2
 python-multipart>=0.0.6
-
-# Deep Learning (Inférence)
-tensorflow>=2.15.0  # Gère GPU / CPU / Mac M1
-numpy>=1.24.3
 Pillow>=10.0.0
+numpy>=1.24.3

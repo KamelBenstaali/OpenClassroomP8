@@ -2,6 +2,7 @@
 .DS_Store
 .AppleDouble
 .LSOverride
+.idea/
 
 # Python
 venv/
@@ -15,6 +16,9 @@ __pycache__/
 # Project specific
 mlflow.db
 mlruns/
+backup/
+Documentation/
+Experiences/
 # Data folder (often too large for git, uncomment if you want to exclude it)
 Data/
 
@@ -24,3 +28,7 @@ Data/
 *.pth
 *.pt
 
+Dockerfile
+p8-key.pem
+utils.py
+scanu.ipynb

@@ -1,12 +1,6 @@
 
-# --- UI Dependencies ---
-# Interface Web
-streamlit>=1.26.0
-
-# Traitement image léger
-Pillow>=10.0.0
-numpy>=1.24.3
-matplotlib>=3.7.2  # Utile si besoin de plots avancés
-
-# Communication avec l'API
-requests>=2.31.0
+streamlit
+requests
+Pillow
+numpy
+importlib-metadata>=1.0; python_version < "3.8"

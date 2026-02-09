@@ -12,7 +12,9 @@ import uvicorn
 # Taille attendue par le modèle (doit correspondre à l'entraînement)
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
-MODEL_PATH = "../../models/checkpoints/UNet_Light_NoAug/best_model.keras" # Chemin par défaut (à adapter)
+# Chemin absolue vers le modèle pour éviter les erreurs de chemin relatif
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MODEL_PATH = os.path.join(BASE_DIR, "Experiences", "Models", "UNet_Light_WithAug", "final_model.keras")
 
 # --- Initialisation de l'App ---
 app = FastAPI(
@@ -50,6 +52,18 @@ async def load_model():
     except Exception as e:
         print(f"❌ Erreur lors du chargement du modèle : {e}")
 
+# --- Palette de Couleurs (Cityscapes 8 classes) ---
+PALETTE = [
+    [128, 64, 128],  # flat (Road) - Violet
+    [220, 20, 60],   # human - Rouge
+    [0, 0, 142],     # vehicle - Bleu
+    [70, 70, 70],    # construction - Gris
+    [220, 220, 0],   # object - Jaune
+    [107, 142, 35],  # nature - Vert
+    [70, 130, 180],  # sky - Ciel
+    [0, 0, 0]        # void - Noir
+]
+
 # --- Fonctions Utilitaires ---
 def preprocess_image(image_bytes):
     """
@@ -85,6 +99,20 @@ def postprocess_mask(pred_tensor):
     
     return mask.astype(np.uint8)
 
+def colorize_mask(mask_array):
+    """
+    Applique la palette de couleurs sur un masque 2D (H, W)
+    Retourne une image PIL
+    """
+    h, w = mask_array.shape
+    colored_mask = np.zeros((h, w, 3), dtype=np.uint8)
+    
+    for i, color in enumerate(PALETTE):
+        # i correspond à la classe (0 à 7)
+        colored_mask[mask_array == i] = color
+        
+    return Image.fromarray(colored_mask)
+
 # --- Endpoints ---
 @app.get("/")
 def read_root():
@@ -93,8 +121,8 @@ def read_root():
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     """
-    Reçoit une image, renvoie le masque de segmentation.
-    Format de retour : JSON avec le masque sous forme de liste.
+    Reçoit une image, renvoie le masque de segmentation au format JSON (matrice brute).
+    Idéal pour les applications clientes (Streamlit, React...).
     """
     if model is None:
         raise HTTPException(status_code=503, detail="Le modèle n'est pas encore chargé.")
@@ -116,13 +144,51 @@ async def predict(file: UploadFile = File(...)):
         mask = postprocess_mask(predictions)
         
         # 5. Réponse
-        # On renvoie le masque brut (liste de listes)
-        # Le frontend (Streamlit) se chargera de reconstruire l'image et gérer les couleurs
         return {
             "filename": file.filename,
             "mask": mask.tolist(), # Conversion numpy -> list pour JSON
             "shape": mask.shape
         }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi.responses import Response
+
+@app.post("/predict_image")
+async def predict_image(file: UploadFile = File(...)):
+    """
+    Reçoit une image, renvoie l'image du masque colorisé directement (Format PNG).
+    Idéal pour tester visuellement dans le navigateur ou Swagger UI.
+    """
+    if model is None:
+        raise HTTPException(status_code=503, detail="Le modèle n'est pas encore chargé.")
+    
+    if file.content_type.split("/")[0] != "image":
+        raise HTTPException(status_code=400, detail="Le fichier doit être une image.")
+
+    try:
+        # 1. Lecture
+        contents = await file.read()
+        
+        # 2. Prétraitement
+        input_tensor = preprocess_image(contents)
+        
+        # 3. Inférence
+        predictions = model.predict(input_tensor)
+        
+        # 4. Post-traitement
+        mask = postprocess_mask(predictions)
+        
+        # 5. Colorisation
+        colored_img = colorize_mask(mask)
+        
+        # 6. Conversion en bytes pour la réponse
+        img_byte_arr = io.BytesIO()
+        colored_img.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        
+        return Response(content=img_byte_arr, media_type="image/png")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

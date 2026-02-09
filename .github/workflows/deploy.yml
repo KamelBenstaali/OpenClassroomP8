@@ -1,0 +1,42 @@
+
+name: Deploy API to AWS EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 1. Update Repo
+            cd /home/ubuntu/OpenClassroomP8
+            git pull origin main
+            
+            # 2. Rebuild Docker Image
+            # Note: This rebuilds strictly using 'app/api/requirements.txt' as defined in Dockerfile
+            docker build -t myapi -f Dockerfile .
+            
+            # 3. Stop & Remove Old Container
+            docker stop myapi_container || true
+            docker rm myapi_container || true
+            
+            # 4. Run New Container
+            # -d: Detached mode
+            # -p 8000:8000: Map port 8000
+            # --restart unless-stopped: Auto-restart on crash/reboot
+            docker run -d \
+              --name myapi_container \
+              -p 8000:8000 \
+              --restart unless-stopped \
+              myapi
