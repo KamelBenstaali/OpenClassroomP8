@@ -1,7 +1,7 @@
 
 import streamlit as st
 import requests
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image, ImageEnhance, ImageOps, ImageFilter
 import numpy as np
 import os
 import io
@@ -47,16 +47,32 @@ def load_local_images():
     ids = [f.replace("_leftImg8bit.png", "") for f in files]
     return sorted(ids)
 
-def apply_transforms(image, brightness, contrast, flip):
+def apply_transforms(image, brightness, contrast, saturation, sharpness, blur, flip):
     """ Applique les transformations en temps réel """
+    # 1. Flip
     if flip:
         image = ImageOps.mirror(image)
         
-    enhancer = ImageEnhance.Brightness(image)
-    image = enhancer.enhance(brightness)
+    # 2. Transformations de couleur/lumière
+    if brightness != 1.0:
+        enhancer = ImageEnhance.Brightness(image)
+        image = enhancer.enhance(brightness)
     
-    enhancer = ImageEnhance.Contrast(image)
-    image = enhancer.enhance(contrast)
+    if contrast != 1.0:
+        enhancer = ImageEnhance.Contrast(image)
+        image = enhancer.enhance(contrast)
+
+    if saturation != 1.0:
+        enhancer = ImageEnhance.Color(image)
+        image = enhancer.enhance(saturation)
+
+    if sharpness != 1.0:
+        enhancer = ImageEnhance.Sharpness(image)
+        image = enhancer.enhance(sharpness)
+        
+    # 3. Filtres (Flou)
+    if blur > 0:
+        image = image.filter(ImageFilter.GaussianBlur(radius=blur))
     
     return image
 
@@ -184,125 +200,134 @@ inject_custom_css()
 st.markdown('<div class="main-header">🚗 Segmentation Sémantique - Véhicule Autonome</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Interface de Démonstration & Test de Robustesse</div>', unsafe_allow_html=True)
 
-# 1. Sidebar : Sélection et Contrôles
-st.sidebar.markdown("## ⚙️ Panneau de Contrôle")
-st.sidebar.markdown("---")
-st.sidebar.subheader("1. Sélection de l'Image")
+# --- Global State ---
+if 'pred_mask_std' not in st.session_state:
+    st.session_state['pred_mask_std'] = None
+if 'pred_mask_robust' not in st.session_state:
+    st.session_state['pred_mask_robust'] = None
 
+# 1. Sidebar : Sélection de l'Image
+st.sidebar.markdown("## ⚙️ Configuration")
 available_ids = load_local_images()
+
 if not available_ids:
     st.sidebar.error(f"Aucune image trouvée dans {IMG_DIR}")
     selected_id = None
 else:
     selected_id = st.sidebar.selectbox("Choisir une image ID :", available_ids)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("2. Perturbations (Test)")
-
-brightness = st.sidebar.slider("☀️ Luminosité", 0.1, 2.0, 1.0, 0.1)
-contrast = st.sidebar.slider("🌓 Contraste", 0.1, 2.0, 1.0, 0.1)
-flip = st.sidebar.checkbox("↔️ Flip Horizontal")
-
-
-# 2. Logique Principale
-# Initialisation de l'état pour la persistance
-if 'pred_mask' not in st.session_state:
-    st.session_state['pred_mask'] = None
+# --- Chargement de base ---
+original_image = None
+real_mask_img_std = None # Pour std
+real_mask_img_robust = None # Pour robust (potentiellement flippé)
 
 if selected_id:
     img_path = os.path.join(IMG_DIR, f"{selected_id}_leftImg8bit.png")
     mask_path = os.path.join(MASK_DIR, f"{selected_id}_gtFine_labelIds.png")
     
     try:
-        # Chargement & Transform
         original_image = Image.open(img_path).convert('RGB')
-        transformed_image = apply_transforms(original_image, brightness, contrast, flip)
         
-        # Masque Réel
-        real_mask_img = None
         if os.path.exists(mask_path):
-            real_mask = Image.open(mask_path)
-            if flip:
-                real_mask = ImageOps.mirror(real_mask)
-            real_mask_img = real_mask 
+            real_mask_img_std = Image.open(mask_path)
             
     except Exception as e:
-        st.error(f"Erreur: {e}")
+        st.error(f"Erreur chargement: {e}")
         st.stop()
 
-    # Bouton de prédiction dans la sidebar pour ne pas casser l'alignement
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🚀 Lancer la Prédiction", type="primary"):
-        with st.spinner("Analyse en cours..."):
-            buf = io.BytesIO()
-            transformed_image.save(buf, format="PNG")
-            buf.seek(0)
+
+# --- Onglets ---
+tab1, tab2 = st.tabs(["🔍 Segmentation Standard", "🎨 Transformations d'images"])
+
+# === ONGLET 1 : Segmentation Standard ===
+with tab1:
+    if selected_id and original_image:
+        col1_in, col1_truth, col1_pred = st.columns(3)
+        
+        with col1_in:
+            st.markdown('<div class="image-card"><h4>📷 Image Originale</h4>', unsafe_allow_html=True)
+            st.image(original_image, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col1_truth:
+            st.markdown('<div class="image-card"><h4>🎯 Vérité Terrain</h4>', unsafe_allow_html=True)
+            if real_mask_img_std:
+                st.image(real_mask_img_std, use_container_width=True)
+            else:
+                st.info("Non disponible")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col1_pred:
+            st.markdown('<div class="image-card"><h4>🤖 Prédiction</h4>', unsafe_allow_html=True)
             
-            try:
-                files = {"file": ("image.png", buf, "image/png")}
-                response = requests.post(API_URL, files=files)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    mask_pred = np.array(data["mask"], dtype=np.uint8)
-                    
-                    # Colorisation
-                    colored_mask_img = colorize_mask(mask_pred)
-                    
-                    # Redimensionnement pour correspondre à l'image d'origine (et à l'affichage)
-                    # Le modèle sort du 224x224, mais on veut l'afficher aligné avec l'input
-                    colore_mask_resized = colored_mask_img.resize(transformed_image.size, resample=Image.NEAREST)
-                    
-                    st.session_state['pred_mask'] = colore_mask_resized
-                else:
-                    st.error(f"Erreur API: {response.status_code}")
-            except Exception as e:
-                st.error("API non disponible")
+            if st.session_state['pred_mask_std']:
+                st.image(st.session_state['pred_mask_std'], use_container_width=True)
+            else:
+                placeholder = Image.new('RGB', original_image.size, (240, 240, 240))
+                st.image(placeholder, use_container_width=True, caption="En attente...")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    # Layout avec Colonnes
-    col_input, col_truth, col_pred = st.columns(3)
-    
-    with col_input:
-        st.markdown('<div class="image-card"><h4>📷 Image (Input)</h4>', unsafe_allow_html=True)
-        st.image(transformed_image, use_container_width=True)
-        st.caption(f"ID: {selected_id}")
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Bouton Centré en dessous
+        st.write("") 
+        c_left, c_center, c_right = st.columns([1, 2, 1])
+        with c_center:
+            if st.button("Lancer la Prédiction (Standard) 🚀", key="btn_std", type="primary", use_container_width=True):
+                with st.spinner("Analyse en cours..."):
+                    try:
+                        buf = io.BytesIO()
+                        original_image.save(buf, format="PNG")
+                        buf.seek(0)
+                        
+                        files = {"file": ("image.png", buf, "image/png")}
+                        response = requests.post(API_URL, files=files)
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            mask = np.array(data["mask"], dtype=np.uint8)
+                            colored = colorize_mask(mask)
+                            st.session_state['pred_mask_std'] = colored.resize(original_image.size, resample=Image.NEAREST)
+                        else:
+                            st.error(f"Erreur API: {response.status_code}")
+                    except Exception as e:
+                        st.error("API non disponible")
 
-    with col_truth:
-        st.markdown('<div class="image-card"><h4>🎯 Vérité Terrain</h4>', unsafe_allow_html=True)
-        if real_mask_img:
-            st.image(real_mask_img, use_container_width=True)
-        else:
-            # Placeholder simple
-            st.info("Non disponible")
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Légende Commune (bas de page - seulement Tab 1)
+    st.markdown("### 🏷️ Légende des Classes")
+    items_html = ""
+    for i, label in enumerate(LABELS):
+        color = PALETTE[i]
+        rgb_val = f"rgb({color[0]}, {color[1]}, {color[2]})"
+        items_html += f'<div class="legend-item"><div class="color-box" style="background-color: {rgb_val};"></div>{label}</div>'
+    legend_html = f'<div class="legend-container">{items_html}</div>'
+    st.markdown(legend_html, unsafe_allow_html=True)
 
-    with col_pred:
-        st.markdown('<div class="image-card"><h4>🤖 Prédiction Modèle</h4>', unsafe_allow_html=True)
+
+# === ONGLET 2 : Transformations ===
+with tab2:
+    if selected_id and original_image:
         
-        if st.session_state['pred_mask'] is not None:
-            st.image(st.session_state['pred_mask'], use_container_width=True)
-        else:
-            # Placeholder pour aligner visuellement
-            # On crée une image grise de la MEME TAILLE que l'input pour garantir l'alignement parfait
-            placeholder = Image.new('RGB', transformed_image.size, (240, 240, 240))
-            st.image(placeholder, use_container_width=True, caption="En attente...")
+        # Mise en page : Contrôles à gauche, Image à droite
+        col_controls, col_image = st.columns([1, 2], gap="medium")
         
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Légende (Full Width en bas)
-    if st.session_state['pred_mask'] is not None:
-        st.markdown("### Légende des Classes")
-        
-        # Construction propre du HTML sans indentation excessive
-        items_html = ""
-        for i, label in enumerate(LABELS):
-            color = PALETTE[i]
-            rgb_val = f"rgb({color[0]}, {color[1]}, {color[2]})"
-            items_html += f'<div class="legend-item"><div class="color-box" style="background-color: {rgb_val};"></div>{label}</div>'
+        with col_controls:
+            st.markdown("#### 🎛️ Paramètres")
             
-        legend_html = f'<div class="legend-container">{items_html}</div>'
-        st.markdown(legend_html, unsafe_allow_html=True)
+            st.markdown("**Lumière & Couleur**")
+            brightness = st.slider("Luminosité", 0.1, 2.0, 1.0, 0.1, key="bright")
+            contrast = st.slider("Contraste", 0.1, 2.0, 1.0, 0.1, key="cont")
+            saturation = st.slider("Saturation", 0.0, 2.0, 1.0, 0.1, key="sat")
+            
+            st.write("") # Petit espace
+            st.markdown("**Détails & Géométrie**")
+            sharpness = st.slider("Netteté", 0.0, 3.0, 1.0, 0.1, key="sharp")
+            blur = st.slider("Flou (Radius)", 0.0, 5.0, 0.0, 0.5, key="blur")
+            flip = st.checkbox("Miroir Horizontal (Flip)", key="flip")
 
-
-
+        # Application Transform
+        transformed_image = apply_transforms(original_image, brightness, contrast, saturation, sharpness, blur, flip)
+        
+        with col_image:
+            # Affichage de l'image modifiée
+            st.markdown('<div class="image-card"><h4>📷 Image Modifiée</h4>', unsafe_allow_html=True)
+            st.image(transformed_image, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
