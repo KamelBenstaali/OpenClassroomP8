@@ -1,0 +1,89 @@
+- EXP_ROOT = PROJECT_ROOT / "Experiences" / "Model_1_UnetLight" 
+
+- Dirs:
+    MLFLOW_TRACKING_DIR = EXP_ROOT / "mlruns"
+    CHECKPOINTS_DIR     = EXP_ROOT / "checkpoints"
+    MODELS_DIR          = EXP_ROOT / "Models"
+- Dimensions:
+    IMG_HEIGHT = 256  # Compatible MobileNetV2
+    IMG_WIDTH = 512
+    BATCH_SIZE = 32
+
+1.  **Data Preparation (Pre-Modeling)**
+    *   **Datasets:** Two datasets are prepared:
+        *   `train_ds`: Training data with optional augmentation.
+        *   `val_ds`: Validation data (no augmentation).
+    *   **Data Augmentation:** Applied via `Albumentations` library (wrapped in `tf.numpy_function`).
+        *   Vertical Flip (p=0.5).
+        *   Horizontal Flip (p=0.5).
+        *   RandomResizedCrop (scale=0.7-1.0, p=0.4).
+        *   Rotate (limit=30, p=0.3).
+        *   ShiftScaleRotate (shift=0.1, scale=0.1, rotate=0, p=0.5).
+        *   RandomBrightnessContrast (brightness_limit=0.1, contrast_limit=0.1, p=0.6).
+        
+2.  **Model Architecture: "Light_UNet"**
+    *   **Function:** `build_refined_unet(input_shape, num_classes)`
+    *   **Structure:** Custom U-Net built from scratch (not pre-trained).
+    *   **Encoder (Downsampling):**
+        *   4 Blocks. Each block consists of:
+            *   Conv2D (3x3, padding="same", initializer="he_normal") -> BatchNormalization -> ReLU
+            *   Conv2D (3x3, padding="same", initializer="he_normal") -> BatchNormalization -> ReLU
+            *   MaxPooling2D (2x2)
+        *   Filters increase: 16 -> 32 -> 64 -> 128.
+    *   **Bottleneck:**
+        *   Double Conv Block (128 filters).
+        *   Dropout (rate=0.2) for regularization.
+    *   **Decoder (Upsampling):**
+        *   3 Blocks. Each block consists of:
+            *   Conv2DTranspose (2x2, stride=2)
+            *   Concatenate (Skip connection from Encoder)
+            *   Double Conv Block (same structure as Encoder).
+        *   Filters decrease: 64 -> 32 -> 16.
+    *   **Output Layer:**
+        *   Conv2D (1x1, num_classes=8).
+        *   Activation: `softmax`.
+        *   Dtype: `float32`.
+
+3.  **Training Configuration**
+    *   **Optimizer:** `Adam` with learning rate `1e-3`.
+    *   **Loss Function:** `combo_loss`
+        *   Combination of `SparseCategoricalCrossentropy` and `Dice Loss`.
+        *   Formula: `Loss = CrossEntropy + (1 - MeanDiceScore)`.
+    *   **Metrics:** None specified in `compile` (automatically tracks `loss` and `val_loss`).
+    *   **Compilation:** `model.compile(..., run_eagerly=True)` (to handle potential graph mode issues with custom loss).
+
+4.  **Training Workflow (`train_model` function)**
+    *   **Experiment Tracking:** Uses `MLflow` to log parameters, metrics, and artifacts.
+    *   **Callbacks:**
+        *   `ModelCheckpoint`: Saves the best model (`best_model.keras`) based on minimizing `val_loss`.
+        *   `EarlyStopping`: Monitors `val_loss`, patience=5, restores best weights.
+        *   `ReduceLROnPlateau`: Reduces learning rate by 20% (factor 0.8) if `val_loss` stagnates for 5 epochs.
+    *   **Training Loop:** Runs for a default of 15 epochs.
+    *   **Post-Training Evaluation:**
+        *   Computes and logs Confusion Matrix as a heatmap image (`confusion_matrix.png`).
+        *   Calculates and logs per-class IoU (Intersection over Union) and Dice Score.
+        *   Calculates and logs Mean IoU and Mean Dice.
+        *   Saves a classification report CSV artifact.
+
+5.  **Experiments**
+    *   The notebook runs two primary experiments for comparison:
+        1.  **Baseline:** Training "Light_UNet" *without* data augmentation (`UNet_Light_NoAug`).
+        2.  **Augmented:** Training "Light_UNet" *with* data augmentation (`UNet_Light_WithAug`).
+
+6.  **Saved Traces & Artifacts Structure (`EXP_ROOT`)**
+    This structure is automatically created under `Experiences/Model_1_UnetLight/`:
+    
+    *   **`mlruns/`** (MLflow Tracking Data)
+        *   Contains experiment metadata, run parameters (epochs, optimizer, loss), and metrics (loss, val_loss, iou_*, dice_*).
+        *   Stores artifacts uploaded to MLflow:
+            *   `classification_report.csv` (Detailed metrics per class)
+            *   `confusion_matrix.png` (Heatmap image)
+            *   `model_summary.txt`
+            
+    *   **`checkpoints/`** (Intermediate Saves)
+        *   `UNet_Light_NoAug/best_model.keras` : Best model weights (lowest val_loss) for baseline.
+        *   `UNet_Light_WithAug/best_model.keras` : Best model weights (lowest val_loss) for augmented run.
+        
+    *   **`Models/`** (Final Models)
+        *   `UNet_Light_NoAug/final_model.keras` : Model saved at the very end of script.
+        *   `UNet_Light_WithAug/final_model.keras` : Model saved at the very end of script.

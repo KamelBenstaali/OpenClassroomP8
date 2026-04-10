@@ -12,9 +12,10 @@ import uvicorn
 # Taille attendue par le modèle (doit correspondre à l'entraînement)
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
+from model_architecture import build_deeplabv3_plus
 # Chemin absolue vers le modèle pour éviter les erreurs de chemin relatif
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MODEL_PATH = os.path.join(BASE_DIR, "Experiences", "Models", "UNet_Light_WithAug", "final_model.keras")
+MODEL_PATH = os.path.join(BASE_DIR, "app", "model", "DeepLabV3_ResNet_WithAug", "final_model.keras")
 
 # --- Initialisation de l'App ---
 app = FastAPI(
@@ -42,9 +43,10 @@ async def load_model():
     try:
         if os.path.exists(MODEL_PATH):
             print(f"Chargement du modèle depuis {MODEL_PATH}...")
-            # compile=False car on n'a pas besoin de la fonction de perte pour l'inférence
-            # cela évite les erreurs avec les custom losses (Combo Loss) non définies
-            model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+            # Compile=False is naturally applied when we just build the architecture
+            tf.keras.backend.clear_session()
+            model = build_deeplabv3_plus(input_shape=(IMG_HEIGHT, IMG_WIDTH, 3), num_classes=8)
+            model.load_weights(MODEL_PATH)
             print("✅ Modèle chargé avec succès.")
         else:
             print(f"⚠️ ATTENTION : Modèle introuvable à {MODEL_PATH}")
@@ -78,8 +80,9 @@ def preprocess_image(image_bytes):
     # Redimensionnement
     img = img.resize((IMG_WIDTH, IMG_HEIGHT))
     
-    # Conversion en Array et Normalisation [0, 1]
-    img_array = np.array(img, dtype=np.float32) / 255.0
+    # Conversion en Array et Preprocessing ResNet50V2 ([-1, 1])
+    img_array = np.array(img, dtype=np.float32)
+    img_array = tf.keras.applications.resnet_v2.preprocess_input(img_array)
     
     # Ajout de la dimension Batch (1, 224, 224, 3)
     img_tensor = np.expand_dims(img_array, axis=0)
