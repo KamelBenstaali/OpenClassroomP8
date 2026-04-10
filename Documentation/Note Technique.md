@@ -22,7 +22,7 @@ La majorité des réseaux de segmentation suivent cette structure :
     2.  **Padding "Same"** : L'officiel utilise `valid` (réduction de taille progressive), obligeant à rogner les features (cropping). Nous utilisons `same` pour maintenir les dimensions (224x224) constantes, simplifiant l'architecture.
     3.  **Modernisation** : Ajout de **Batch Normalization** (absent en 2015) après chaque convolution pour accélérer la convergence.
 
-### 2.3 Modèle 2 : U-Net avec Backbone MobileNetV2
+### 2.3 Modèle 2 : U-Net avec Backbone ResnetV2
 *   **Innovation : Convolutions Séparables** : MobileNetV2 utilise des *Depthwise Separable Convolutions*.
     *   *Principe* : Au lieu de faire une convolution 3D lourde, on sépare le spatial (Depthwise) du canal (Pointwise).
     *   *Gain* : Réduit le coût de calcul et le nombre de paramètres d'un facteur 8 à 9.

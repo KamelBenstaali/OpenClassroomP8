@@ -8,7 +8,7 @@ import io
 
 # --- Configuration ---
 API_URL = "http://localhost:8000/predict"
-DATA_DIR = "../data/test_samples" 
+DATA_DIR = "../data_for_APItest/test_samples" 
 IMG_DIR = os.path.join(DATA_DIR, "images")
 MASK_DIR = os.path.join(DATA_DIR, "masks")
 
