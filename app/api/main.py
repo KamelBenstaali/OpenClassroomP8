@@ -12,7 +12,7 @@ import uvicorn
 # Taille attendue par le modèle (doit correspondre à l'entraînement)
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
-from model_architecture import build_deeplabv3_plus
+from app.api.model_architecture import build_deeplabv3_plus
 # Chemin absolue vers le modèle pour éviter les erreurs de chemin relatif
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODEL_PATH = os.path.join(BASE_DIR, "app", "model", "DeepLabV3_ResNet_WithAug", "final_model.keras")
