@@ -21,8 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --chown=user app/api /app/app/api
 COPY --chown=user app/model /app/app/model
 
-# Exposer le port que FastAPI utilisera
-EXPOSE 8000
+# Exposer le port que FastAPI utilisera (Hugging Face EXIGE le port 7860)
+EXPOSE 7860
 
 # Commande de lancement attendue
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "7860"]
