@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout P8 repository
         uses: actions/checkout@v3
+        with:
+          lfs: true # Crucial pour récupérer le fichier .keras au lieu d'un simple lien LFS
 
       - name: Setup Python 3.10
         uses: actions/setup-python@v4
@@ -37,8 +39,8 @@ jobs:
 
           # Copie le modèle et sa structure de répertoires comme attendu par main.py
           # Assurez-vous que le chemin ici correspond à l'emplacement réel de votre modèle
-          mkdir -p hf_space_content/app/model/DeepLabV3_ResNet_WithAug/
-          cp app/model/DeepLabV3_ResNet_WithAug/final_model.keras hf_space_content/app/model/DeepLabV3_ResNet_WithAug/
+          mkdir -p hf_space_content/model/DeepLabV3_ResNet_WithAug/
+          cp app/model/DeepLabV3_ResNet_WithAug/final_model.keras hf_space_content/model/DeepLabV3_ResNet_WithAug/
 
           # Crée un fichier .gitignore pour le Space
           echo "__pycache__" > hf_space_content/.gitignore
