@@ -24,5 +24,8 @@ COPY --chown=user app/model /app/app/model
 # Exposer le port que FastAPI utilisera (Hugging Face EXIGE le port 7860)
 EXPOSE 7860
 
+# Ajouter le répertoire de l'API au PYTHONPATH pour que les imports fonctionnent
+ENV PYTHONPATH="${PYTHONPATH}:/app/app/api"
+
 # Commande de lancement attendue
 CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "7860"]
