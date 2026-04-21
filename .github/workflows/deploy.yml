@@ -73,13 +73,15 @@ jobs:
           # Initialise un dépôt Git dans le répertoire temporaire et pousse vers Hugging Face
           cd hf_space_content
           git init
+          git branch -m main # Renomme la branche par défaut en 'main'
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Deploy FastAPI app to Hugging Face Space"
 
-          # Remplacez <YOUR_HF_USERNAME>/<YOUR_SPACE_NAME> par l'ID réel de votre Space Hugging Face
-          git remote add origin https://huggingface.co/spaces/<YOUR_HF_USERNAME>/<YOUR_SPACE_NAME>
+          # IMPORTANT : Remplacez <YOUR_HF_USERNAME> et <YOUR_SPACE_NAME> par vos vrais identifiants Hugging Face
+          # Les guillemets sont nécessaires pour éviter des erreurs de syntaxe shell avec les caractères < et >
+          git remote add origin "https://huggingface.co/spaces/<YOUR_HF_USERNAME>/<YOUR_SPACE_NAME>"
           git push --force origin main
           cd .. # Retourne à la racine du dépôt P8
 
