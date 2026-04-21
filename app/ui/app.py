@@ -1,14 +1,13 @@
 
 import streamlit as st
 import requests
-from PIL import Image, ImageEnhance, ImageOps, ImageFilter
+from PIL import Image, ImageEnhance, ImageOps, ImageFilter, ImageDraw
 import numpy as np
 import os
 import io
 
 # --- Configuration ---
-# API_URL = "http://localhost:8000/predict" # Ancienne URL locale
-API_URL = "https://s0l0kame-openclassroomp8.hf.space/predict"
+API_URL = "http://localhost:8000/predict"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "..", "data_for_APItest", "test_samples") 
 IMG_DIR = os.path.join(DATA_DIR, "images")
@@ -49,7 +48,7 @@ def load_local_images():
     ids = [f.replace("_leftImg8bit.png", "") for f in files]
     return sorted(ids)
 
-def apply_transforms(image, brightness, contrast, saturation, sharpness, blur, flip):
+def apply_transforms(image, brightness, contrast, saturation, sharpness, blur, flip, crop_l=0, crop_r=0, crop_t=0, crop_b=0):
     """ Applique les transformations en temps réel """
     # 1. Flip
     if flip:
@@ -76,6 +75,19 @@ def apply_transforms(image, brightness, contrast, saturation, sharpness, blur, f
     if blur > 0:
         image = image.filter(ImageFilter.GaussianBlur(radius=blur))
     
+    # 4. Crop (Découpage en %)
+    if crop_l > 0 or crop_r > 0 or crop_t > 0 or crop_b > 0:
+        w, h = image.size
+        # Conversion % en pixels
+        left = w * (crop_l / 100)
+        top = h * (crop_t / 100)
+        right = w * (1 - crop_r / 100)
+        bottom = h * (1 - crop_b / 100)
+        
+        # Sécurité : vérifier que le crop est valide
+        if right > left and bottom > top:
+            image = image.crop((left, top, right, bottom))
+            
     return image
 
 def inject_custom_css():
@@ -225,7 +237,7 @@ real_mask_img_robust = None # Pour robust (potentiellement flippé)
 
 if selected_id:
     img_path = os.path.join(IMG_DIR, f"{selected_id}_leftImg8bit.png")
-    mask_path = os.path.join(MASK_DIR, f"{selected_id}_gtFine_labelIds.png")
+    mask_path = os.path.join(MASK_DIR, f"{selected_id}_gtFine_color.png")
     
     try:
         original_image = Image.open(img_path).convert('RGB')
@@ -308,28 +320,80 @@ with tab1:
 with tab2:
     if selected_id and original_image:
         
-        # Mise en page : Contrôles à gauche, Image à droite
-        col_controls, col_image = st.columns([1, 2], gap="medium")
-        
-        with col_controls:
-            st.markdown("#### 🎛️ Paramètres")
-            
-            st.markdown("**Lumière & Couleur**")
-            brightness = st.slider("Luminosité", 0.1, 2.0, 1.0, 0.1, key="bright")
-            contrast = st.slider("Contraste", 0.1, 2.0, 1.0, 0.1, key="cont")
-            saturation = st.slider("Saturation", 0.0, 2.0, 1.0, 0.1, key="sat")
-            
-            st.write("") # Petit espace
-            st.markdown("**Détails & Géométrie**")
-            sharpness = st.slider("Netteté", 0.0, 3.0, 1.0, 0.1, key="sharp")
-            blur = st.slider("Flou (Radius)", 0.0, 5.0, 0.0, 0.5, key="blur")
-            flip = st.checkbox("Miroir Horizontal (Flip)", key="flip")
+        # Initialisation de l'état pour les transformations si absent
+        if 't2_bright' not in st.session_state: st.session_state.t2_bright = 1.0
+        if 't2_cont' not in st.session_state: st.session_state.t2_cont = 1.0
+        if 't2_sat' not in st.session_state: st.session_state.t2_sat = 1.0
+        if 't2_sharp' not in st.session_state: st.session_state.t2_sharp = 1.0
+        if 't2_blur' not in st.session_state: st.session_state.t2_blur = 0.0
+        if 't2_flip' not in st.session_state: st.session_state.t2_flip = False
+        if 't2_crop_l' not in st.session_state: st.session_state.t2_crop_l = 0
+        if 't2_crop_r' not in st.session_state: st.session_state.t2_crop_r = 0
+        if 't2_crop_t' not in st.session_state: st.session_state.t2_crop_t = 0
+        if 't2_crop_b' not in st.session_state: st.session_state.t2_crop_b = 0
 
-        # Application Transform
-        transformed_image = apply_transforms(original_image, brightness, contrast, saturation, sharpness, blur, flip)
+        def reset_all_filters():
+            st.session_state.t2_bright = 1.0
+            st.session_state.t2_cont = 1.0
+            st.session_state.t2_sat = 1.0
+            st.session_state.t2_sharp = 1.0
+            st.session_state.t2_blur = 0.0
+            st.session_state.t2_flip = False
+            st.session_state.t2_crop_l = 0
+            st.session_state.t2_crop_r = 0
+            st.session_state.t2_crop_t = 0
+            st.session_state.t2_crop_b = 0
+
+        # 1. Mise en page : Images en haut, côte à côte
+        col_orig, col_trans = st.columns(2)
         
-        with col_image:
-            # Affichage de l'image modifiée
-            st.markdown('<div class="image-card"><h4>📷 Image Modifiée</h4>', unsafe_allow_html=True)
+        # 2. Paramètres en dessous dans une barre horizontale (colonnes)
+        st.markdown("---")
+        h_col1, h_col2 = st.columns([3, 1])
+        with h_col1:
+            st.markdown("#### 🎛️ Paramètres de Transformation")
+        with h_col2:
+            if st.button("🔄 Réinitialiser", key="reset_btn_t2", use_container_width=True):
+                reset_all_filters()
+                st.rerun()
+        
+        p_col1, p_col2, p_col3, p_col4 = st.columns(4)
+        
+        with p_col1:
+            st.markdown("**Luminosité & Contraste**")
+            brightness = st.slider("Luminosité", 0.1, 2.0, key="t2_bright")
+            contrast = st.slider("Contraste", 0.1, 2.0, key="t2_cont")
+            saturation = st.slider("Saturation", 0.0, 2.0, key="t2_sat")
+            
+        with p_col2:
+            st.markdown("**Détails & Filtres**")
+            sharpness = st.slider("Netteté", 0.0, 3.0, key="t2_sharp")
+            blur = st.slider("Flou (Radius)", 0.0, 5.0, key="t2_blur")
+            flip = st.checkbox("Miroir Horizontal (Flip)", key="t2_flip")
+            
+        with p_col3:
+            st.markdown("**Crop Vertical (%)**")
+            crop_t = st.slider("Haut (Top)", 0, 50, key="t2_crop_t")
+            crop_b = st.slider("Bas (Bottom)", 0, 50, key="t2_crop_b")
+
+        with p_col4:
+            st.markdown("**Crop Horizontal (%)**")
+            crop_l = st.slider("Gauche (Left)", 0, 50, key="t2_crop_l")
+            crop_r = st.slider("Droite (Right)", 0, 50, key="t2_crop_r")
+
+        # 3. Application des transformations
+        transformed_image = apply_transforms(
+            original_image, brightness, contrast, saturation, sharpness, blur, flip,
+            crop_l, crop_r, crop_t, crop_b
+        )
+        
+        # 4. Affichage dans les colonnes du haut
+        with col_orig:
+            st.markdown('<div class="image-card"><h4>📷 Image Originale</h4>', unsafe_allow_html=True)
+            st.image(original_image, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        with col_trans:
+            st.markdown('<div class="image-card"><h4>🎨 Image Modifiée</h4>', unsafe_allow_html=True)
             st.image(transformed_image, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
