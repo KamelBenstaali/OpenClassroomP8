@@ -31,16 +31,14 @@ jobs:
           # Crée un répertoire temporaire qui sera le contenu de votre Space HF
           mkdir hf_space_content
           
-          # Copie les fichiers de l'API (main.py, model_architecture.py, etc.)
-          cp -r app/api/* hf_space_content/
+          # Copie les fichiers de l'API et du modèle en conservant la structure attendue
+          mkdir -p hf_space_content/app/api
+          mkdir -p hf_space_content/app/model
+          cp -r app/api/* hf_space_content/app/api/
+          cp -r app/model/* hf_space_content/app/model/
           
-          # Copie le fichier requirements.txt de l'API pour le Space
-          cp app/api/requirements.txt hf_space_content/requirements.txt
-
-          # Copie le modèle et sa structure de répertoires comme attendu par main.py
-          # Assurez-vous que le chemin ici correspond à l'emplacement réel de votre modèle
-          mkdir -p hf_space_content/model/DeepLabV3_ResNet_WithAug/
-          cp app/model/DeepLabV3_ResNet_WithAug/final_model.keras hf_space_content/model/DeepLabV3_ResNet_WithAug/
+          # Copie le Dockerfile pour le Space
+          cp Dockerfile hf_space_content/Dockerfile
 
           # Crée un fichier .gitignore pour le Space
           echo "__pycache__" > hf_space_content/.gitignore
@@ -57,10 +55,7 @@ jobs:
           emoji: 🚀
           colorFrom: blue
           colorTo: purple
-          sdk: python
-          python_version: "3.10" # Assurez-vous que cette version correspond à celle utilisée par votre API
-          app_file: main.py # Le point d'entrée de votre application FastAPI
-          app_port: 8000
+          sdk: docker # Le mode Docker est nécessaire pour les applications FastAPI personnalisées
           ---
 
           # P8 FastAPI Segmentation API
