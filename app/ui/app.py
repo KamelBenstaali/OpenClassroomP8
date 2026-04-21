@@ -7,7 +7,7 @@ import os
 import io
 
 # --- Configuration ---
-API_URL = "http://localhost:8000/predict"
+API_URL = "https://s0l0kame-openclassroomp8.hf.space/predict"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "..", "data_for_APItest", "test_samples") 
 IMG_DIR = os.path.join(DATA_DIR, "images")
