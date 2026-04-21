@@ -70,20 +70,28 @@ jobs:
           Envoyez une requête POST à l'endpoint /predict ou /predict_image.
           EOF
 
-          # Initialise un dépôt Git dans le répertoire temporaire et pousse vers Hugging Face
+          # Initialise un dépôt Git dans le répertoire temporaire
           cd hf_space_content
           git init
-          git branch -m main # Renomme la branche par défaut en 'main'
+          git branch -m main
+          
+          # Configuration Git LFS (obligatoire pour votre modèle de 400 Mo)
+          git lfs install
+          git lfs track "*.keras"
+          
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
           git add .
-          git commit -m "Deploy FastAPI app to Hugging Face Space"
+          git commit -m "Deploy FastAPI app to Hugging Face Space with LFS"
 
-          # IMPORTANT : Remplacez <YOUR_HF_USERNAME> et <YOUR_SPACE_NAME> par vos vrais identifiants Hugging Face
-          # Les guillemets sont nécessaires pour éviter des erreurs de syntaxe shell avec les caractères < et >
-          git remote add origin "https://huggingface.co/spaces/<YOUR_HF_USERNAME>/<YOUR_SPACE_NAME>"
+          # Authentification via le token dans l'URL
+          # IMPORTANT : Remplacez <YOUR_HF_USERNAME> et <YOUR_SPACE_NAME> par vos vrais identifiants
+          git remote add origin "https://kamelbest:${HF_TOKEN}@huggingface.co/spaces/S0l0kame/OpenClassroomP8"
+          
+          # Pousse les fichiers (LFS gèrera automatiquement le transfert du .keras)
           git push --force origin main
-          cd .. # Retourne à la racine du dépôt P8
+          cd ..
 
   deploy-ui-to-streamlit-cloud:
     runs-on: ubuntu-latest
